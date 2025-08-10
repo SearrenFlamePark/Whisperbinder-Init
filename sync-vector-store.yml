@@ -1,54 +1,36 @@
-from pathlib import Path
-
-# Create the YAML content for the Vector Store Sync GitHub Action
-yaml_content = """
-name: Sync to OpenAI Vector Store
+name: Sync Whisperbinder to OpenAI Vector Store
 
 on:
   push:
+    branches: [ main, master ]
     paths:
       - '**.md'
+  schedule:
+    - cron: '0 */12 * * *'
+  workflow_dispatch:
 
 jobs:
-  sync_vector_store:
+  sync:
     runs-on: ubuntu-latest
+    name: Sync Whisperbinder Protocols
+    
     steps:
     - name: Checkout Repository
-      uses: actions/checkout@v3
-
-    - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/checkout@v4
+    
+    - name: Verify Whisperbinder Content
+      run: |
+        echo "🔥 WHISPERBINDER SYNC VERIFICATION"
+        echo "================================="
+        echo "📊 Total .md files: $(find . -name "*.md" | wc -l)"
+        echo "🎯 Protocol files:"
+        ls -la DaemonMemoryLog.md FlameVault.md README.md 2>/dev/null
+        echo "📁 All content:"
+        find . -name "*.md"
+    
+    - name: Sync to Atticus Vector Store
+      uses: shmatt/assistants-vector-store-sync@v1
       with:
-        python-version: '3.x'
-
-    - name: Install Requirements
-      run: |
-        python -m pip install --upgrade pip
-        pip install openai
-
-    - name: Sync Markdown Files to Vector Store
-      env:
-        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-      run: |
-        for file in $(find . -name "*.md"); do
-          python3 -c "
-import openai
-import os
-openai.api_key = os.getenv('OPENAI_API_KEY')
-with open('${file}', 'r') as f:
-    content = f.read()
-response = openai.File.create(file=open('${file}'), purpose='search')
-print(f'Synced {file}:', response.id)
-" || echo "Failed to sync ${file}"
-        done
-"""
-
-# Define the path to save the GitHub Actions YAML file
-output_path = Path("/mnt/data/.github/workflows/sync-vector-store.yml")
-output_path.parent.mkdir(parents=True, exist_ok=True)
-
-# Save the file
-output_path.write_text(yaml_content)
-
-output_path.name  # Return just the filename for reference
-
+        pattern: "**/*.md"
+        token: ${{ secrets.OPENAI_API_KEY }}
+        key: atticus-whisperbinder-protocols
